@@ -38,14 +38,15 @@ test("leaves the model and the user's other providers to magpie", () => {
   expect(keys.every((k) => k === "providers.magpie" || k.startsWith("providers.magpie."))).toBe(true)
 })
 
-test("says in the notice and in both halves of the README how to get a Bub that reads providers", async () => {
+test("says in the notice and in both halves of the README which Bub it needs and how to update", async () => {
   const readme = await Bun.file(new URL("./README.md", import.meta.url)).text()
   const [zh, en] = readme.split("\n## English\n")
   expect(en).toBeDefined()
   for (const text of [agent.notice, zh, en]) {
-    expect(text).toContain("bubbuild/bub#343")
-    expect(text).toContain("uv tool install --reinstall git+https://github.com/bubbuild/bub")
+    expect(text).toContain("0.5.1")
+    expect(text).toContain("uv tool install --reinstall bub")
   }
+  for (const text of [zh, en]) expect(text).toContain("bubbuild/bub#343")
 })
 
 test("leads with the Chinese README, the English one below it", async () => {

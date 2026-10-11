@@ -21,15 +21,14 @@ providers:
 
 ## 需要的 Bub 版本
 
-需要支持在 `providers:` 下写具名 provider 的 Bub
-（[bubbuild/bub#343](https://github.com/bubbuild/bub/pull/343)，2026-10-09 合并）。
-目前还没有 release 带它：PyPI 上的 0.5.0 没有。在有 release 之前，请从仓库安装 Bub：
+需要 Bub 0.5.1 或更新版本：从 0.5.1 起，Bub 支持在 `providers:` 下写具名 provider
+（[bubbuild/bub#343](https://github.com/bubbuild/bub/pull/343)）。0.5.0 及更早的版本没有。更新：
 
 ```sh
-uv tool install --reinstall git+https://github.com/bubbuild/bub
+uv tool install --reinstall bub    # 用 pip 装的：pip install -U bub
 ```
 
-没有它的 Bub 遇到 `magpie:` 模型，每一轮都会在请求发出之前失败：
+更早的 Bub 遇到 `magpie:` 模型，每一轮都会在请求发出之前失败：
 `'magpie' is not a supported provider`。看到这个报错，就更新 Bub；或者在这一行选回 Bub 自己的模型（或运行 `magpie bub default`），把文件恢复。
 
 Agent 插件怎么工作：[usemagpie.ai/docs/zh/plugins#agents](https://usemagpie.ai/docs/zh/plugins#agents)。
@@ -66,16 +65,15 @@ sessions after a change: Bub reads its settings when it starts.
 
 ## The Bub it needs
 
-A Bub that takes named providers under `providers:`
-([bubbuild/bub#343](https://github.com/bubbuild/bub/pull/343), merged
-2026-10-09). No release has it yet: 0.5.0 on PyPI doesn't. Until one does,
-install Bub from its repository:
+Bub 0.5.1 or later: from 0.5.1 Bub takes named providers under `providers:`
+([bubbuild/bub#343](https://github.com/bubbuild/bub/pull/343)). 0.5.0 and
+older don't. To update:
 
 ```sh
-uv tool install --reinstall git+https://github.com/bubbuild/bub
+uv tool install --reinstall bub    # installed with pip: pip install -U bub
 ```
 
-A Bub without it fails every turn on a `magpie:` model, before any request
+An older Bub fails every turn on a `magpie:` model, before any request
 goes out: `'magpie' is not a supported provider`. If you see that, update Bub,
 or pick one of Bub's own models in the row (or run `magpie bub default`) to put
 the file back.

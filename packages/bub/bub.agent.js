@@ -6,7 +6,7 @@ export const agent = {
   config: "~/.bub/config.yml",
   model: "model",
   prefix: "magpie:",
-  notice: "Bub reads its settings at start-up: restart bub gateway and open bub chat sessions to use the new model. This needs a Bub with bubbuild/bub#343, in no release yet: uv tool install --reinstall git+https://github.com/bubbuild/bub. An older Bub fails every turn on a magpie: model.",
+  notice: "Bub reads its settings at start-up: restart bub gateway and open bub chat sessions to use the new model. This needs Bub 0.5.1 or later (uv tool install --reinstall bub); an older Bub fails every turn on a magpie: model.",
 }
 
 export function connect({ gateway }) {
