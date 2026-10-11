@@ -40,18 +40,18 @@ test("leaves the model and the user's other providers to magpie", () => {
 
 test("says in the notice and in both halves of the README which Bub it needs and how to update", async () => {
   const readme = await Bun.file(new URL("./README.md", import.meta.url)).text()
-  const [zh, en] = readme.split("\n## English\n")
-  expect(en).toBeDefined()
-  for (const text of [agent.notice, zh, en]) {
+  const [en, zh] = readme.split("\n## 中文\n")
+  expect(zh).toBeDefined()
+  for (const text of [agent.notice, en, zh]) {
     expect(text).toContain("0.5.1")
     expect(text).toContain("uv tool install --reinstall bub")
   }
-  for (const text of [zh, en]) expect(text).toContain("bubbuild/bub#343")
+  for (const text of [en, zh]) expect(text).toContain("bubbuild/bub#343")
 })
 
-test("leads with the Chinese README, the English one below it", async () => {
+test("leads with the English README, the Chinese one below it", async () => {
   const readme = await Bun.file(new URL("./README.md", import.meta.url)).text()
-  const [zh] = readme.split("\n## English\n")
+  const [en, zh] = readme.split("\n## 中文\n")
+  expect(en.replace("(中文说明在下面。)", "")).not.toMatch(/[\u4e00-\u9fff]/)
   expect(zh).toMatch(/[\u4e00-\u9fff]/)
-  expect(readme.indexOf("## English")).toBeGreaterThan(readme.search(/[\u4e00-\u9fff]/))
 })
