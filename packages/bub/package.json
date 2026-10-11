@@ -1,7 +1,7 @@
 {
   "name": "@magpie-community/agent-bub",
   "version": "0.1.0",
-  "description": "Bub (bub.build) as a magpie agent: pick one of magpie's models for it on the Agents page",
+  "description": "Bub（bub.build）作为 magpie 的 Agent：在 Agent 页给它选 magpie 的模型 / Bub (bub.build) as a magpie agent: pick one of magpie's models for it on the Agents page",
   "type": "module",
   "files": ["bub.agent.js", "README.md"],
   "keywords": ["magpie", "magpie-agent", "bub", "llm-gateway"],
