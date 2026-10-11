@@ -37,3 +37,11 @@ test("leaves the model and the user's other providers to magpie", () => {
   expect(keys).not.toContain("model")
   expect(keys.every((k) => k === "providers.magpie" || k.startsWith("providers.magpie."))).toBe(true)
 })
+
+test("says in the notice and the README how to get a Bub that reads providers", async () => {
+  const readme = await Bun.file(new URL("./README.md", import.meta.url)).text()
+  for (const text of [agent.notice, readme]) {
+    expect(text).toContain("bubbuild/bub#343")
+    expect(text).toContain("uv tool install --reinstall git+https://github.com/bubbuild/bub")
+  }
+})

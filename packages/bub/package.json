@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Bub (bub.build) as a magpie agent: pick one of magpie's models for it on the Agents page",
   "type": "module",
-  "files": ["bub.agent.js"],
+  "files": ["bub.agent.js", "README.md"],
   "keywords": ["magpie", "magpie-agent", "bub", "llm-gateway"],
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/magpie-community/plugins.git", "directory": "packages/bub" },
