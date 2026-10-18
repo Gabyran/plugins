@@ -113,6 +113,10 @@ const SITES = {
     // Trae CN's account info carries no region: its one deployment is the
     // one it is asked through
     regionOf: () => "",
+    checkin: {
+      status: { path: "/trae/api/v2/ug/checkin_credits/status" },
+      claim: { path: "/trae/api/v2/ug/checkin_credits/claim" },
+    },
     // where usage is asked, and which page it is (CN: credits)
     usage: {
       kind: "credits",
@@ -296,8 +300,32 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // device is the machine an account signs in from, made once at sign-in and
 // named to trae.cn's authorization page, then sent with every request: a
-// fresh one each time is what the relays saw requests dropped for.
-const newDevice = () => ({ deviceId: digits(19), machineId: randomBytes(16).toString("hex"), ...newDeviceKey() })
+// fresh one each time is what the relays saw requests dropped for. Trae
+// CN's id has the shape its clients' have, 16 digits: the device service
+// gives the IDE a 15- or 16-digit one (iCubeAuthInfo://icube-dc:<id>, see
+// clientDevice), and Trae CN answers a check-in claim on a 19-digit id
+// 9074 where the same account and token on a 16-digit one are taken
+// (magpie-community/plugins#194). Trae's global site keeps the 19 digits
+// it was signed in with: nothing says its ids are shaped otherwise.
+const newDevice = (site) => ({ deviceId: digits(site?.id === "trae-cn" ? 16 : 19), machineId: randomBytes(16).toString("hex"), ...newDeviceKey() })
+
+// ugDevice is the device id a Trae CN account's check-in goes on when this
+// machine's client isn't signed in as it: its own when that already has a
+// client's shape (15 or 16 digits), else, for an account signed in before
+// 0.2.16 with 19 digits, a 16-digit id made from its own device id and
+// uid. That one is the same on every check-in of the account, never
+// rotated and never another account's: it is the account's own device in
+// the shape Trae CN takes (#194), not a new device to get past a refusal,
+// and a 9095 (this device is in for today) on it stays the day's answer.
+// The chat's pages and the renewal keep the device the account signed in
+// with.
+function ugDevice(a) {
+  const id = String(a.deviceId ?? "")
+  if (/^\d{15,16}$/.test(id)) return id
+  if (!id && !a.uid) return id
+  const n = BigInt("0x" + createHash("sha256").update(`trae-cn-device\0${id}\0${a.uid ?? ""}`).digest("hex").slice(0, 30))
+  return String(1_000_000_000_000_000n + (n % 9_000_000_000_000_000n))
+}
 
 // newDeviceKey is the device's key pair, an ECDSA P-256 one as the clients
 // keep (iCubeAuthInfo://icube-dc:<device>), whose public half goes with a
@@ -627,7 +655,7 @@ async function signedIn(q, device, site) {
 // browserSignIn is the IDE's sign-in: trae.cn's authorization page, back
 // to a callback on 127.0.0.1 (the page takes no other kind)
 async function browserSignIn(site) {
-  const device = newDevice()
+  const device = newDevice(site)
   const trace = randomUUID()
   let over = false
   let settle
@@ -2491,6 +2519,9 @@ const makePlugin = (site) => async ({ client }) => {
     // other account keeps its own device; none is given the client's.
     const deviceId = ug && site.id === "trae-cn" ? await clientDevice(a.uid) : undefined
     const own = deviceId ? { deviceId, ...thisMachine() } : undefined
+    // every other Trae CN account checks in on its own device, in the
+    // client's shape (ugDevice, #194)
+    if (ug && site.id === "trae-cn" && !own) a = { ...a, deviceId: ugDevice(a) }
     const res = await fetch(url, {
       method,
       headers: ug ? ugHeaders(a, site, { Accept: "application/json" }, own) : ideHeaders(a, site, { Accept: "application/json" }),
@@ -2501,6 +2532,39 @@ const makePlugin = (site) => async ({ client }) => {
     const lapsed = res.status === 401 || lapsedCode(errorOf(text).code, site)
     const headers = { "content-type": res.headers.get("content-type") ?? "application/json", "X-Magpie-Sign-In": lapsed ? "expired" : a.renewed ? "renewed" : "kept" }
     return new Response(text, { status: res.status, headers })
+  }
+
+  // checkin asks Trae CN's own pages as magpie's check-in host does, with
+  // the same account, device and renewal as any own page. Trae Global has
+  // no such page.
+  const checkin = async (getAuth) => {
+    if (!site.checkin) return { outcome: "inactive", message: `${site.realm} has no daily check-in` }
+    const a0 = fromAuth(await getAuth(), site)
+    if (!a0) return { outcome: "failed", message: "not signed in" }
+    const base = site.hosts.auth + site.checkin.status.path
+    const status = await ownRequest(getAuth, a0, base, "POST", "{}")
+    const statusText = await status.text()
+    let body
+    try { body = JSON.parse(statusText) } catch {}
+    if (!body || typeof body !== "object" || Array.isArray(body)) return { outcome: "failed", message: `check-in status: unreadable reply ${statusText.trim().slice(0, 120) || "(empty)"}` }
+    const e = errorOf(body)
+    if (status.status === 401 || lapsedCode(e.code, site)) return { outcome: "failed", message: e.message || `${a0.name || a0.uid}: Trae's sign-in has expired` }
+    if (status.status !== 200 || (e.code && String(e.code) !== "0")) return { outcome: "failed", message: e.message || statusLine(status.status) }
+    if (body?.checked_in) return { outcome: "done", ...(Number(body.credits) > 0 ? { credit: Number(body.credits) } : {}) }
+    if (!body?.enable) return { outcome: "inactive" }
+    const claim = await ownRequest(getAuth, a0, site.hosts.auth + site.checkin.claim.path, "POST", "{}")
+    const claimText = await claim.text()
+    let answer
+    try { answer = JSON.parse(claimText) } catch {}
+    const ce = errorOf(answer)
+    if (claim.status === 401 || lapsedCode(ce.code, site)) return { outcome: "failed", message: ce.message || `${a0.name || a0.uid}: Trae's sign-in has expired` }
+    if (String(ce.code) === "9095") return { outcome: "ineligible", message: ce.message || "this device has checked in today" }
+    if (String(ce.code) === "9074") return { outcome: "ineligible", message: `${ce.message} — check in in the Trae CN app` }
+    if (claim.status !== 200 || (ce.code && String(ce.code) !== "0")) return { outcome: "failed", message: ce.message || statusLine(claim.status) }
+    if (!answer || typeof answer !== "object" || Array.isArray(answer)) return { outcome: "failed", message: `check-in claim: unreadable reply ${claimText.trim().slice(0, 120) || "(empty)"}` }
+    const credit = Number(answer.credits) + Number(answer.extra_credits || 0)
+    const fallback = Number(body.credits) + Number(body.extra_credits || 0)
+    return { outcome: "claimed", ...(credit > 0 ? { credit } : fallback > 0 ? { credit: fallback } : {}) }
   }
 
   const usage = async (getAuth) => {
@@ -2746,6 +2810,7 @@ const makePlugin = (site) => async ({ client }) => {
     auth: {
       provider: site.id,
       usage,
+      checkin,
       // magpie renews the token LEAD_MS before its end, once, before its
       // requests, models and usage ask; the check before each request
       // stays for OpenCode, which doesn't call this
@@ -2861,4 +2926,4 @@ const makePlugin = (site) => async ({ client }) => {
 export const TraeCNAuthPlugin = makePlugin(SITES["trae-cn"])
 export const TraeGlobalAuthPlugin = makePlugin(SITES["trae-global"])
 
-export const _internal = { ownClient, clientStoragePaths, clientDevice, clientDecode, thisMachine, traeHost, accountOf, HOSTS: SITES["trae-cn"].hosts, MODELS: SITES["trae-cn"].models, TextTools, NativeCalls, looseJSON, glmCall, nameCall, toolNamed, unwrapped, traeMessages, chatBody, credits, dollarUsageOf, whenOf, newDevice, proofOf, SITES, SESSION, conversationID }
+export const _internal = { ownClient, clientStoragePaths, clientDevice, clientDecode, thisMachine, traeHost, accountOf, HOSTS: SITES["trae-cn"].hosts, MODELS: SITES["trae-cn"].models, TextTools, NativeCalls, looseJSON, glmCall, nameCall, toolNamed, unwrapped, traeMessages, chatBody, credits, dollarUsageOf, whenOf, newDevice, ugDevice, proofOf, SITES, SESSION, conversationID }

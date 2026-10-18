@@ -1,6 +1,7 @@
 {
   "version": 1,
   "plugins": [
+    {"package": "@magpie-community/opencode-kimi-work-auth", "name": "Kimi Work", "icon": "kimi", "providers": ["kimi-work"], "community": true, "summary": {"en": "Kimi desktop Work subscription through its local sign-in, with live Work models and shared membership usage. Separate from Kimi Code.", "zh": "使用本机普通 Kimi 桌面版的 Work 登录，自动读取 Work 模型和会员共享用量；独立于 Kimi Code。"}},
     { "package": "@magpie-community/opencode-zen-free-auth", "name": "OpenCode Zen Free", "icon": "opencode", "providers": ["opencode-zen-free"], "community": true,
       "summary": { "en": "OpenCode Zen's free models with the public credential, automatic discovery and native streaming protocols.", "zh": "使用 public 凭证接入 OpenCode Zen 免费模型，自动发现模型并支持原生流式协议。" } },
     { "package": "@magpie-community/opencode-zcode-auth", "name": "ZCode", "icon": "zcode", "providers": ["zcode"], "community": true, "replaces": "zcode",
@@ -47,6 +48,8 @@
       "summary": { "en": "New API's sensitive-word filter: turn away or mask words and patterns in what you send, and in replies.", "zh": "New API 的敏感词过滤：拒绝或替换你发出的内容和回复里的词与正则。" } },
     { "package": "@magpie-community/middleware-think-tags", "name": "Think Tags", "kind": "middleware", "community": true,
       "summary": { "en": "Take a model's <think>…</think> out of its reply's text, or put a Chat reply's reasoning into it.", "zh": "去掉回复正文开头的 <think>…</think>，或把 Chat 回复的思考内容放进正文。" } },
+    { "package": "@magpie-community/middleware-antigravity-cloak", "name": "Antigravity Cloak", "kind": "middleware", "community": true,
+      "summary": { "en": "Claude Code and Claude Desktop on an Antigravity account: the words Antigravity refuses their system prompt for are broken up, in what Antigravity alone is sent.", "zh": "让 Claude Code 和 Claude Desktop 能用 Antigravity 账号：只在发给 Antigravity 的请求里拆开它据以拒绝系统提示词的那几个词。" } },
     { "package": "@magpie-community/middleware-codex-history", "name": "Codex History Filter", "kind": "middleware", "community": true,
       "summary": { "en": "Opt-in, per-provider Codex Responses history filtering after switching providers. Preserves readable content and tool-call pairing; no model probes.", "zh": "按供应商开关 Codex Responses 历史过滤，缓解切换上游后的密文和历史 ID 兼容问题；保留正文与工具配对，不运行模型检测。" } },
     { "package": "@magpie-community/agent-aider", "name": "Aider", "kind": "agent", "community": true,
@@ -58,6 +61,7 @@
     { "package": "@magpie-community/tools-calc", "name": "Calc", "kind": "tools", "community": true,
       "summary": { "en": "Exact arithmetic, unit conversion and calendar date math as tools for every agent: no network, no key.", "zh": "给每个 agent 的精确计算、单位换算和日历日期计算工具：不联网，不需要 key。" } },
     { "package": "@magpie-community/page-usage", "name": "Usage Glance", "kind": "page", "community": true,
-      "summary": { "en": "A page in magpie's window with calls, errors, tokens and cost for today, 7 or 30 days, and the models behind them. Reads only your usage summary.", "zh": "在 magpie 窗口里一眼看到今天、7 天或 30 天的调用、错误、token、费用和对应模型。只读取用量汇总。" } }
+      "summary": { "en": "A page in magpie's window with calls, errors, tokens and cost for today, 7 or 30 days, and the models behind them. Reads only your usage summary.", "zh": "在 magpie 窗口里一眼看到今天、7 天或 30 天的调用、错误、token、费用和对应模型。只读取用量汇总。" } },
+    {"package": "@magpie-community/agent-kimi-desktop", "name": "Kimi", "kind": "agent", "community": true, "summary": {"en": "Kimi desktop Work on Magpie's Agents page: select a model from Magpie, then disconnect to restore the original service. Not Kimi Code CLI.", "zh": "把普通 Kimi 桌面版 Work 接入 Magpie Agent 页，使用已配置的模型；断开恢复原连接。不是 Kimi Code CLI。"}}
   ]
 }

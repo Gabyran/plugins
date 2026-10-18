@@ -73,6 +73,14 @@ Flash, Kimi K3 and GLM-5.2 have `none`, droid's "off": they stop thinking.
 Reasoning is mandatory on GLM-5.3 and GLM-5.3-Flash (Fireworks turns `none`
 away), so `low` is their least.
 
+A model's price is its token multiplier in droid's registry
+(`cost.tokenMultiplier`), which magpie shows beside the model as its rate
+(`0.8×`), so a cheap one is picked without opening droid. A promotion running
+comes off it, with the multiplier before the discount struck through beside
+the price (`rateWas`): Mistral Large 4's launch discount, Gemini 4 Argon's,
+Gemini 3.8/3.7 Flash's and GPT-5.6 Sol's, each while droid's own dates for it
+hold. A promotion that has ended is no discount at all.
+
 Gemini's requests go to Factory's generate route with the model in the
 body, droid's line opening the system instruction. Gemini 4 Argon is behind
 a Factory feature flag in droid 0.241.1, so an account it isn't on for may
@@ -120,9 +128,14 @@ The fixed Claude identity is recognized as a complete first line too when
 magpie joins it with the following system instructions into one text block.
 
 For the built-in `update-config` skill, the adapter changes only the known
-self-reference "not Claude" to "not the assistant" inside a complete
-generated skill-list reminder. Its configuration instructions, other
-skill descriptions, tools and caller text are preserved.
+self-reference "not Claude" to "not the assistant" inside that skill's entry
+in a generated skill list. Claude Code renders the entry two ways: as a
+system message (`- update-config: …`) and, in the `claude-code-guide` agent's
+own system prompt under `# User's Current Configuration`, with the slash that
+invokes it (`- /update-config: …`). Both spellings are adapted, and only the
+sentence Factory refuses changes, so the entry's name and the rest of the list
+stay. Its configuration instructions, other skill descriptions, tools and
+caller text are preserved.
 
 Claude 5 can send runtime metadata in string-content `system` messages
 instead of user-message reminders. The plugin adapts the known environment,

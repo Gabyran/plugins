@@ -42,9 +42,11 @@ An account of one realm does not sign in to the other: trae.cn's accounts are
 not trae.ai's.
 
 At sign-in the plugin creates the account's device and names it to the
-authorization page: `device_id` (19 digits) and `machine_id` (32 hex). Every
+authorization page: `device_id` and `machine_id` (32 hex). Every
 request then sends that same device. The relays saw requests dropped when the
-device was new each time.
+device was new each time. A Trae CN `device_id` is 16 digits since 0.2.16, the
+shape of the ids Trae's device service gives its clients (15 or 16 digits);
+Trae Global's stays 19.
 
 ### Enterprise (SaaS) accounts
 
@@ -279,7 +281,13 @@ an empty answer.
 
 Trae CN gives credits for a daily check-in (每日签到); Trae Global has no
 such page, so this is CN only. magpie can press it
-once a day for each account (Settings, or the switch on the usage card).
+once a day for each account (Settings, or the switch on the usage card),
+through `auth.checkin`: `claimed` when Trae grants the credits, `done`
+when the status says today's is in already, `inactive` when the page is
+disabled, `ineligible` when the claim answers 9095 (this device has
+checked in today) or 9074 (to be done in Trae CN's own app; not asked
+again that day), and `failed` for a turned-away sign-in or any other
+answer, which is tried again later that day.
 It asks Trae CN's own pages through
 this plugin's fetch, which sends them as the account, as Trae CN's IDE
 (3.3.104) sends them: its Cloud-IDE-JWT (renewed first when near its
@@ -314,11 +322,20 @@ answered it 9074 even with the client's headers.
   macOS `~/Library/Application Support/Trae CN/…`, Windows
   `%APPDATA%\Trae CN\…` (or `trae-cn`), Linux `~/.config/trae-cn/…`
   (or `Trae CN`; not seen on a real Linux install).
+- **Every other account's device (0.2.16):** its own device id, in the
+  client's shape. Trae CN answered a claim on the plugin's 19-digit id
+  9074, while the same account and token on a 16-digit id were taken
+  (magpie-community/plugins#194). An account signed in since 0.2.16 has a
+  16-digit id and checks in on it. One signed in before checks in on a
+  16-digit id made from its own device id and uid: the same id every day,
+  never rotated, and no other account's. Its chat requests and renewals
+  keep the 19-digit device it signed in with.
 - **What comes back:** Trae's answer as it is. A 401 or code 1001 marks
   the account for a new sign-in. Code 9095 means this device has checked
-  in today. No device id is ever made up, changed or rotated to get round
-  a 9095 or a 9074, and no account is given a device that isn't its
-  own client's.
+  in today, and that holds for the day. No device id is ever changed or
+  rotated to get round a 9095 or a 9074, and no account is given another
+  account's device or its own client's device unless the client is signed
+  in as that account.
 
 Only `api.trae.cn`'s `/trae/api/` pages are sent this way; any other URL
 that isn't a chat request is still refused (400). Needs 0.1.4 or later.

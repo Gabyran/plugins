@@ -201,7 +201,10 @@ The hosts and reply shapes come from a real VPC account's report
 Qoder gives credits for a daily claim (the Qoder client's campaign
 `CLAIM_BENEFIT`, 100 Credits a day as reported), on both sites. magpie can
 claim it for each account when its Qoder check-in switch is on
-(Settings). It asks these pages through this plugin's fetch (since 0.2.7),
+(Settings), through `auth.checkin`: an already claimed campaign is `done`,
+a campaign not available is `inactive`, and a claimable one is `claimed`
+with its benefit amount. It asks these pages through this plugin's own
+campaigns path (since 0.2.7),
 which sends them as the account, on the device token (`Bearer`,
 `Cosy-ClientType: 10`) as usage is read; a refused device token is
 rotated once and the page asked again.
@@ -243,6 +246,39 @@ International campaign discovery was checked with a real account on
 2026-10-08: the native identity exposed the claimable 100 credits, and
 omitting either header hid them. This verification only queried the
 activity; a live claim was not performed.
+
+## Credits available, but a request is refused
+
+A positive credit balance does not guarantee a queue slot or access to
+every model. Use the model ids listed for that particular account and
+region. Do not infer another account's permission from its balance.
+
+Qoder code **10605**, including `RESOURCE_LIMIT`, `serviceAvailable` or
+`isQueued` details, is a resource/queue answer. Keep its suggested retry
+delay; repeatedly signing in does not free that queue. Since **0.2.18**
+([#185](https://github.com/magpie-community/plugins/pull/185)), a 10605 led
+by a BOM or wrapped in an outer message is read as busy too; see
+[#167](https://github.com/magpie-community/plugins/issues/167) for the broader report.
+That parser fix does not remove the provider's limit or prove that every
+live 401 had the same cause. A timeout likewise does not establish an
+empty wallet or an expired login.
+
+For a bounded offline reproduction, run `packages/qoder/busy.test.mjs`
+from #185 in an isolated temporary HOME. It compares plain queue JSON,
+BOM-prefixed JSON and known message wrappers, keeping explicit login and
+credit failures distinct. Extracting a JSON body from a translated log
+cannot recover the original wire bytes; synthetic wrappers demonstrate
+parser behavior, not which wrapper a historical request actually used.
+After selecting a local fix with magpie's `plugin use`, confirm which spec
+serves `qoder` in `plugin list`; a patched checkout alone does not change
+the running provider.
+
+
+For native check-in, an existing `CLAIMED` result is not a new credit grant.
+The host's recheck/cache behavior is tracked in
+[magpie#2696](https://github.com/yetone/magpie/issues/2696). Verify a new
+claim against the vendor record; a successful activity query alone is not
+proof that credits arrived.
 
 ## Not here
 
