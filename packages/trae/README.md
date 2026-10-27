@@ -86,8 +86,9 @@ agent's `POST https://trae-api-cn.mchost.guru/api/agent/v3/llm_utils_chat`:
   - The function is the one whose model list has the model, the first that
     names a `__dev` model for it (in the order `chat_v3`, the classic IDE's;
     `solo_work_lite`, SOLO's Work mode; `solo_agent`, the TRAE agent's;
-    `solo_agent_lite`). If Trae answers 4001, 4023 or 1005, the plugin tries
-    the others once and remembers which one worked.
+    `solo_agent_lite`; `solo_coder`, SOLO's coder roster). If Trae answers
+    4001, 4023 or 1005, the plugin tries the others once and remembers which
+    one worked.
   - `session_id` is the conversation's, as the IDE keeps one per conversation:
     the session magpie (or OpenCode) names the request by, else the chat's
     first user message, which every later turn repeats, together with the
@@ -165,6 +166,14 @@ agent's `POST https://trae-api-cn.mchost.guru/api/agent/v3/llm_utils_chat`:
     or is cut short, is never sent on as the answer: the reply ends with an
     error (a 502 without a stream), so the gateway can try again
     (plugins#38). A `<tool_call>` in backticks or a code fence is text.
+  - Kimi and MiMo sometimes write a call in the tags they were trained on:
+    Qwen's `<function=name><parameter=k>v</parameter></function>` (bare or
+    inside `<tool_call>`), or Anthropic's `<function_calls>` around one or
+    more `<invoke name="…"><parameter name="k">v</parameter></invoke>`.
+    Each is read as a call, a parameter's value as JSON unless the tool's
+    schema says string, and one cut short is an error as above. These
+    tags are read only for a tool the request declared; for any other, or
+    in backticks or a code fence, they stay text.
   - Calls from either source become OpenAI `tool_calls`. A name matching a
     requested tool but for case or punctuation (`Read`) goes on as the
     request's (`read`); any other goes on as written, so the agent can say
@@ -194,7 +203,10 @@ The model list is the account's own, from
 TRAE SOLO CN asks it (`/api/ide/v1/get_detail_param`, one function at a
 time, when the batch gives none). The lists are put together: SOLO and the
 TRAE agent list models `chat_v3` doesn't (deepseek-v4.1-flash is the TRAE
-agent's, `solo_agent`). Left out are the IDE's helpers (`usage` other than
+agent's, `solo_agent`), and SOLO's coder roster lists models no other chat
+function does (`glm-5v-turbo`, `kimi-k2.5`, `minimax-m2.7`,
+`qwen-3.6-plus`, each answering through `solo_coder`). Left out are the
+IDE's helpers (`usage` other than
 `chat_completion`: summary, fast_apply…), configs switched off and the
 custom-model slots. Context is the list's `context_window_tokens.dev`,
 output the `__dev` model's `max_tokens`. A model with a `__max` model and
@@ -214,14 +226,48 @@ served under — and asks that model, and its Max, through a list carrying
 it. Trae renamed its official entries on 2026-10-09, leaving the name its
 lists mostly agree on the only thing that tells a misnamed entry apart.
 
-Reasoning: the models reason, but Trae's request takes no effort or
-thinking level, so the plugin lists no variants and a level an agent
-picks does nothing. Every model it lists says so in its `capabilities`
-(`reasoning: true`, with `toolcall`, `temperature`, `attachment`, the
-input and output modalities and an empty `variants`), the fallback
-list's own capabilities kept where it has an entry: magpie reads
-`capabilities.reasoning` alone for a model a plugin lists, and a model
-without it is shown as one that doesn't reason (0.2.4).
+Reasoning: the models reason, and each entry of the account's list says
+which levels it takes — its `reasoning_effort_config`, with the options
+(`light`, `high`, `extra_high`) and the default. The request takes the same
+names as `reasoning_effort`, so a level an agent picks is sent as Trae
+spells it: the plugin offers each model's own levels as `variants`
+(`low`/`high`/`xhigh` for `light`/`high`/`extra_high`), and sends nothing
+for a level the model doesn't name, or for a model whose entry names none —
+Trae then serves it at its own default. An entry naming levels this map
+can't spell offers none, rather than being sent one Trae would reject. A
+request that wants levels for a model the list hasn't named reads the list,
+and that read is remembered for five minutes whether it produced an entry or
+not: a list that fails, or one that doesn't name the model, costs one read
+rather than one per request. (A read costs up to two 20s timeouts when Trae's
+list endpoint is slow, while the chat itself needs no list to answer.) A read
+in flight is shared, not skipped: requests that arrive together — a title
+request beside a session's first turn, subagents — ride the one read and all
+see what it named, so a Max asked that way is still sent under its base
+model's name rather than the agent's own `-max` id. The host's own catalog
+refresh rides the same read, so a refresh and a request never ask twice.
+A request's read swallows an expiry (the chat can still answer); the
+catalog's refresh raises it, so a lapsed account is still marked — including
+when the refresh merely rides a read a request started, which is why the lapse
+travels on the read's record instead of being thrown from it. The host's
+refresh is strict, so it reads again rather than serving a cached lapse: a
+re-sign-in is asked afresh instead of being told again that the account lapsed.
+
+The entry kept for a model is the one the request is asked through, and so
+the one whose levels the request is held to, so the lists' disagreement
+about a model's levels matters: `computer_use_subagent`, for one, is named
+with `light`/`high` by `solo_agent` and `solo_agent_lite` and with none by
+`solo_work_lite`. The three signals that pick the entry — its `__dev`
+model, its not carrying another model's name, its carrying the name the
+lists agree on — decide first; of entries that tie on all three, one that
+names levels is kept, so a model Trae serves with levels is not left
+without them by a sibling entry that names none.
+
+Every model it lists also says it reasons in its `capabilities`
+(`reasoning: true`, with `toolcall`, `temperature`, `attachment` and the
+input and output modalities), the fallback list's own capabilities kept
+where it has an entry: magpie reads `capabilities.reasoning` alone for a
+model a plugin lists, and a model without it is shown as one that doesn't
+reason (0.2.4).
 
 When no
 list can be read, the plugin uses the realm's own fallback list. Trae CN's
@@ -308,12 +354,15 @@ an empty answer.
 Trae CN gives credits for a daily check-in (每日签到); Trae Global has no
 such page, so this is CN only. magpie can press it
 once a day for each account (Settings, or the switch on the usage card),
-through `auth.checkin`: `claimed` when Trae grants the credits, `done`
-when the status says today's is in already, `inactive` when the page is
+through `auth.checkin`: `claimed` when the status says today's is in after
+the claim, `done` when it said so before it, `inactive` when the page is
 disabled, `ineligible` when the claim answers 9095 (this device has
-checked in today) or 9074 (to be done in Trae CN's own app; not asked
-again that day), and `failed` for a turned-away sign-in or any other
-answer, which is tried again later that day.
+checked in today) or 9074 (Trae did not take it for this account's
+device) or answers code 0 while the read-back still says the day is out,
+and `failed` for a turned-away sign-in or any answer that got nowhere,
+which is tried again later that day. An `ineligible` is the day's answer:
+magpie asks that account no more until tomorrow, and only reads its
+status.
 It asks Trae CN's own pages through
 this plugin's fetch, which sends them as the account, as Trae CN's IDE
 (3.3.104) sends them: its Cloud-IDE-JWT (renewed first when near its
@@ -344,10 +393,27 @@ answered it 9074 even with the client's headers.
   plugin's, on its own device, got 9074 (yetone/magpie#808, #1920); that
   this header is what changes it hasn't been tried on a real account
   yet. Every other account keeps its own device, and a file that can't be
-  read or made out, or holds no single device, changes nothing. Files:
-  macOS `~/Library/Application Support/Trae CN/…`, Windows
-  `%APPDATA%\Trae CN\…` (or `trae-cn`), Linux `~/.config/trae-cn/…`
-  (or `Trae CN`; not seen on a real Linux install).
+  read or made out, or holds no single device, changes nothing.
+- **Every profile is read (0.2.21):** a machine can hold more than one
+  Trae CN client profile — the IDE's and TRAE SOLO CN's each write their
+  own `storage.json`, and each names the account that profile is signed in
+  as, with that account's device. So every profile is read and the one
+  signed in as the account answers with its device, which is how two
+  accounts can each check in on a real client's device. Before, only the
+  first profile was read and it decided for all of them: a second
+  account's own profile was never seen, and one profile signed in as
+  someone else (or one file that didn't parse) hid every profile after it.
+  A profile that isn't signed in as the account, or that names no single
+  device, is passed over rather than ending the search. Files: macOS
+  `~/Library/Application Support/Trae CN/…` and `…/TRAE SOLO CN/…`, Windows
+  `%APPDATA%\Trae CN\…`, `…\TRAE SOLO CN\…` (or `trae-cn`), Linux
+  `~/.config/trae-cn/…`, `…/Trae CN/…`, `…/TRAE SOLO CN/…`. The IDE's
+  folder has been seen in a real install (macOS and Windows); TRAE SOLO
+  CN's name and its `iCubeAuthInfo://` keys are read as the same client
+  of the same realm writes them, which hasn't been checked against real
+  files — harmless if they differ, since a folder that isn't there, or a
+  key that isn't named, is simply not read. A client started with its own
+  `--user-data-dir` is not found: there is no list of those to read.
 - **Every other account's device (0.2.16):** its own device id, in the
   client's shape. Trae CN answered a claim on the plugin's 19-digit id
   9074, while the same account and token on a 16-digit id were taken
@@ -358,12 +424,37 @@ answered it 9074 even with the client's headers.
   keep the 19-digit device it signed in with.
 - **What comes back:** Trae's answer as it is. A 401 or code 1001 marks
   the account for a new sign-in. Code 9095 means this device has checked
-  in today, and that holds for the day. No device id is ever changed or
-  rotated to get round a 9095 or a 9074, and no account is given another
-  account's device or its own client's device unless the client is signed
-  in as that account. The credit a claim granted is its `credits` plus
-  its `extra_credits`, either alone; the status answer's is the fallback
-  when the claim says none.
+  in today, and that holds for the day. Code 9074 means Trae did not take
+  the claim for this account's device: its own words say the pool is busy,
+  which two measurements do not bear out — the same account, token and
+  headers were taken on a 16-digit id where a 19-digit one got 9074
+  (plugins#194), and on 2026-10-23 the same account and headers were taken
+  on a device id Trae had never seen while this account's own id answered
+  9074. The message says so, and does not send people to Trae CN's app,
+  which is not where the problem is. Signing the account in to a Trae CN
+  client on this machine is the one thing seen to change a 9074, but it
+  hasn't been tried on a real account, so it isn't named in the message;
+  nor is it named when the claim already rode a client's device, where it
+  would only tell the user to do what they did. No device id is ever
+  changed or rotated to get round a 9095 or a 9074, and no account is
+  given another account's device or its own client's device unless a
+  client is signed in as that account.
+- **A claim's code 0 is not the answer (0.2.22):** Trae answers a
+  claim code 0 for one that registered nothing, so the status is read back
+  after every claim and only a day that is in is reported as `claimed`.
+  Since 0.2.22 one that isn't is an `ineligible` — the day's answer, not a
+  `failed` to be tried again: a `failed` is retried with backoff for the
+  rest of the day and each retry is another claim, which for an account
+  Trae keeps answering code 0 would turn one claim a day into many, and a
+  status that lags a claim that did land would read as not in once and
+  claim again. Nothing is claimed again that day; the status alone is
+  read, so a lag that catches up is still reported as `done`. The credit a
+  claim granted is its `credits`, or its `extra_credits` when it names
+  only that; Trae CN's claim usually names neither
+  (`{"code":0,"message":"success"}`), and then the read-back's `credits`
+  is the credit. The two are never added: the status carries
+  `extra_credits` beside `credits` (100 and 100 on a real account) while
+  the day gives 100.
 
 Only `api.trae.cn`'s `/trae/api/` pages are sent this way; any other URL
 that isn't a chat request is still refused (400). Needs 0.1.4 or later.
